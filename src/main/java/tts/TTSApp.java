@@ -3,7 +3,6 @@ package main.java.tts;
 import javazoom.jl.player.Player;
 
 import javax.swing.*;
-import javax.swing.WindowConstants;
 import java.awt.*;
 import java.io.*;
 import java.net.HttpURLConnection;
@@ -11,10 +10,13 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class TTSApp {
 
     private static final Map<String, String> LANGUAGES = new LinkedHashMap<>();
+    private static final Logger log = Logger.getLogger(TTSApp.class.getName());
 
     static {
         LANGUAGES.put("English", "en");
@@ -34,6 +36,12 @@ public class TTSApp {
     private final JCheckBox playCheckBox = new JCheckBox("Pronunciation (Play immediately)");
     private byte[] lastAudio = null;
 
+    // Declare buttons as instance variables
+    private JButton convertBtn;
+    private JButton saveBtn;
+    private JButton clearBtn;
+    private JButton playBtn;
+
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> new TTSApp().createAndShowGUI());
     }
@@ -45,85 +53,109 @@ public class TTSApp {
         frame.setLocationRelativeTo(null);
         frame.setVisible(true);
 
-        // Add the event listeners directly here
-        addListeners(frame);
+        // Add listeners AFTER all buttons are initialized
+        addListeners();
     }
 
-    // Method to create the JFrame
+    private void addListeners() {
+        convertBtn.addActionListener(e -> handleConvert());
+        saveBtn.addActionListener(e -> handleSave());
+        clearBtn.addActionListener(e -> handleClear());
+        playBtn.addActionListener(e -> handlePlay());
+    }
+
+
     private JFrame createFrame() {
-        JFrame frame = new JFrame("Text to Speech Converter");
+        JFrame frame = new JFrame("Text-to-Speech Converter");
         frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         frame.setSize(600, 400);
-        frame.setLayout(new FlowLayout());
+        frame.setLayout(new BorderLayout());
         return frame;
     }
 
-    // Method to create main panel for layout
     private JPanel createMainPanel() {
         JPanel panel = new JPanel();
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setLayout(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(10, 10, 10, 10);
 
-        panel.add(createTextFieldPanel());
-        panel.add(createButtonsPanel());
+        JLabel titleLabel = new JLabel("Text-to-Speech Converter", JLabel.CENTER);
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 18));
+
+        // Add title
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.gridwidth = 2;
+        panel.add(titleLabel, gbc);
+
+        // Text Field Panel
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        gbc.gridwidth = 2;
+        panel.add(createTextFieldPanel(), gbc);
+
+        // Language Select Panel
+        gbc.gridy = 2;
+        panel.add(createLangPanel(), gbc);
+
+        // Play checkbox
+        gbc.gridy = 3;
+        panel.add(playCheckBox, gbc);
+
+        // Buttons Panel
+        gbc.gridy = 4;
+        panel.add(createButtonsPanel(), gbc);
 
         return panel;
     }
 
-    // Method to create the text field panel
     private JPanel createTextFieldPanel() {
         JPanel textFieldPanel = new JPanel();
         textFieldPanel.setLayout(new FlowLayout());
 
         JLabel label = new JLabel("Enter Text:");
-        JLabel langLabel = new JLabel("Select Language:");
 
         textFieldPanel.add(label);
         textFieldPanel.add(textField);
-        textFieldPanel.add(langLabel);
-        textFieldPanel.add(langComboBox);
-        textFieldPanel.add(playCheckBox);
 
         return textFieldPanel;
     }
 
-    // Method to create buttons panel
+    private JPanel createLangPanel() {
+        JPanel langPanel = new JPanel();
+        langPanel.setLayout(new FlowLayout());
+
+        JLabel langLabel = new JLabel("Select Language:");
+
+        langPanel.add(langLabel);
+        langPanel.add(langComboBox);
+
+        return langPanel;
+    }
+
     private JPanel createButtonsPanel() {
         JPanel buttonsPanel = new JPanel();
         buttonsPanel.setLayout(new FlowLayout());
 
-        JButton convertBtn = new JButton("Convert");
-        JButton saveBtn = new JButton("Save As...");
-        JButton clearBtn = new JButton("Clear");
-        JButton playBtn = new JButton("Play");
+        // Initialize the buttons as instance variables
+        convertBtn = new JButton("Convert");
+        saveBtn = new JButton("Save As...");
+        clearBtn = new JButton("Clear");
+        playBtn = new JButton("Play");
 
+        // Add buttons to the panel
         buttonsPanel.add(convertBtn);
         buttonsPanel.add(saveBtn);
         buttonsPanel.add(clearBtn);
         buttonsPanel.add(playBtn);
 
+        log.info("Count :{}" + buttonsPanel.getComponentCount());
+
+
         return buttonsPanel;
     }
 
-    // Add event listeners to buttons
-    private void addListeners(JFrame frame) {
-        // Event listener for Convert button
-        JButton convertBtn = (JButton) frame.getComponentAt(0, 0);
-        convertBtn.addActionListener(e -> handleConvert());
 
-        // Event listener for Save button
-        JButton saveBtn = (JButton) frame.getComponentAt(0, 0);
-        saveBtn.addActionListener(e -> handleSave());
-
-        // Event listener for Clear button
-        JButton clearBtn = (JButton) frame.getComponentAt(0, 0);
-        clearBtn.addActionListener(e -> handleClear());
-
-        // Event listener for Play button
-        JButton playBtn = (JButton) frame.getComponentAt(0, 0);
-        playBtn.addActionListener(e -> handlePlay());
-    }
-
-    // Method to handle text conversion
     private void handleConvert() {
         String text = textField.getText().trim();
         if (text.isEmpty()) {
@@ -137,13 +169,14 @@ public class TTSApp {
             if (playCheckBox.isSelected()) {
                 playAudio(lastAudio);
             }
+            // Enable the play button after conversion
+            playBtn.setEnabled(true);
         } catch (TTSException ex) {
-            ex.printStackTrace();
+            log.log(Level.SEVERE, "Error: " + ex.getMessage(), ex);
             JOptionPane.showMessageDialog(null, "Error: " + ex.getMessage());
         }
     }
 
-    // Method to handle saving the audio
     private void handleSave() {
         if (lastAudio == null) {
             JOptionPane.showMessageDialog(null, "Please convert text first.");
@@ -156,19 +189,18 @@ public class TTSApp {
                 fos.write(lastAudio);
                 JOptionPane.showMessageDialog(null, "Saved successfully.");
             } catch (IOException ex) {
-                ex.printStackTrace();
+                log.log(Level.SEVERE, "Error saving file: " + ex.getMessage(), ex);
                 JOptionPane.showMessageDialog(null, "Error saving file: " + ex.getMessage());
             }
         }
     }
 
-    // Method to handle play action
     private void handlePlay() {
         if (lastAudio != null) {
             try {
                 playAudio(lastAudio);
             } catch (TTSException ex) {
-                ex.printStackTrace();
+                log.log(Level.SEVERE, "Playback error: " + ex.getMessage(), ex);
                 JOptionPane.showMessageDialog(null, "Playback error: " + ex.getMessage());
             }
         } else {
@@ -176,13 +208,12 @@ public class TTSApp {
         }
     }
 
-    // Method to clear the text field
     private void handleClear() {
         textField.setText("");
         lastAudio = null;
+        playBtn.setEnabled(false);  // Disable play button after clearing
     }
 
-    // Method to fetch TTS data
     private byte[] fetchTTS(String text, String lang) throws TTSException {
         try {
             String encodedText = URLEncoder.encode(text, "UTF-8");
@@ -205,7 +236,6 @@ public class TTSApp {
         }
     }
 
-    // Method to play audio
     private void playAudio(byte[] audioBytes) throws TTSException {
         try (BufferedInputStream bis = new BufferedInputStream(new ByteArrayInputStream(audioBytes))) {
             Player player = new Player(bis);
@@ -213,7 +243,7 @@ public class TTSApp {
                 try {
                     player.play();
                 } catch (Exception ex) {
-                    ex.printStackTrace();
+                    log.log(Level.SEVERE, "Audio playback failed.", ex);
                 }
             }).start();
         } catch (Exception ex) {
